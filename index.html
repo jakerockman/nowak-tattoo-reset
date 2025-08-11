@@ -73,6 +73,18 @@
         .password-requirements li {
             margin: 2px 0;
         }
+        .password-requirements li.valid {
+            color: #28a745;
+        }
+        .password-requirements li.valid::before {
+            content: "✓ ";
+            font-weight: bold;
+        }
+        .password-requirements li.invalid::before {
+            content: "✗ ";
+            color: #dc3545;
+            font-weight: bold;
+        }
         button {
             width: 100%;
             padding: 12px;
@@ -102,6 +114,14 @@
             color: #721c24;
             border: 1px solid #f5c6cb;
         }
+        .debug {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+            font-family: monospace;
+            font-size: 12px;
+            text-align: left;
+        }
     </style>
 </head>
 <body>
@@ -113,16 +133,16 @@
             <div class="password-requirements">
                 <h4>Password Requirements:</h4>
                 <ul>
-                    <li>At least 8 characters long</li>
-                    <li>At least one uppercase letter (A-Z)</li>
-                    <li>At least one lowercase letter (a-z)</li>
-                    <li>At least one number (0-9)</li>
-                    <li>At least one special character (!@#$%^&*)</li>
+                    <li id="length-req">At least 8 characters long</li>
+                    <li id="uppercase-req">At least one uppercase letter (A-Z)</li>
+                    <li id="lowercase-req">At least one lowercase letter (a-z)</li>
+                    <li id="number-req">At least one number (0-9)</li>
+                    <li id="special-req">At least one special character (!@#$%^&*)</li>
                 </ul>
             </div>
             
             <div class="password-container">
-                <input type="password" id="newPassword" placeholder="New Password" required>
+                <input type="password" id="newPassword" placeholder="New Password" required oninput="checkPasswordRequirements()">
                 <button type="button" class="toggle-password" onclick="togglePassword('newPassword')">👁️</button>
             </div>
             
@@ -210,6 +230,28 @@
             return Object.values(requirements).every(req => req);
         }
 
+        // Check password requirements in real-time
+        function checkPasswordRequirements() {
+            const password = document.getElementById('newPassword').value;
+            
+            const requirements = {
+                'length-req': password.length >= 8,
+                'uppercase-req': /[A-Z]/.test(password),
+                'lowercase-req': /[a-z]/.test(password),
+                'number-req': /[0-9]/.test(password),
+                'special-req': /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+            };
+            
+            Object.keys(requirements).forEach(reqId => {
+                const element = document.getElementById(reqId);
+                if (requirements[reqId]) {
+                    element.className = 'valid';
+                } else {
+                    element.className = 'invalid';
+                }
+            });
+        }
+
         // Also listen for auth state changes
         client.auth.onAuthStateChange((event, session) => {
             if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
@@ -250,7 +292,7 @@
                 if (error) {
                     showMessage('Error: ' + error.message, 'error');
                 } else {
-                    showMessage('Password updated successfully! You can now close this page and log in with your new password.', 'success');
+                    showMessage('🎉 Password reset successful! <br><br><button onclick="goBackToApp()" style="background-color: #28a745; margin-top: 10px;">Go Back to App to Login</button>', 'success');
                     document.getElementById('resetForm').style.display = 'none';
                 }
             } catch (err) {
@@ -261,6 +303,17 @@
         function showMessage(text, type) {
             messageDiv.innerHTML = text;
             messageDiv.className = 'message ' + type;
+        }
+
+        // Go back to app
+        function goBackToApp() {
+            // Try to open the app's deep link
+            window.location.href = 'nowaktattooapp://login';
+            
+            // Fallback message if deep link doesn't work
+            setTimeout(() => {
+                showMessage('If the app didn\'t open automatically, please open the Nowak Tattoo app manually and log in with your new password.', 'success');
+            }, 2000);
         }
     </script>
 </body>
