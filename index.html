@@ -86,35 +86,28 @@
 
         // Handle the password recovery flow properly
         async function handleAuthFlow() {
-            // Check URL hash first (Supabase typically uses hash for tokens)
-            const hash = window.location.hash.substring(1);
-            const hashParams = new URLSearchParams(hash);
+            showMessage('Checking reset link...', 'success');
             
-            // Then check URL search params
-            const urlParams = new URLSearchParams(window.location.search);
-            
-            // Get tokens from hash or URL params
-            const accessToken = hashParams.get('access_token') || urlParams.get('access_token');
-            const refreshToken = hashParams.get('refresh_token') || urlParams.get('refresh_token');
-            const type = hashParams.get('type') || urlParams.get('type');
-            
-            if (type === 'recovery' && accessToken) {
-                try {
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    });
-
-                    if (error) {
-                        showMessage('Invalid reset link. Please request a new password reset.', 'error');
-                    } else {
-                        showMessage('Please enter your new password below.', 'success');
-                    }
-                } catch (err) {
-                    showMessage('Error processing reset link. Please try again.', 'error');
+            try {
+                // Check if we have an active session (Supabase should have set this during redirect)
+                const { data: { session }, error } = await supabase.auth.getSession();
+                
+                if (session && session.user) {
+                    showMessage('Reset link verified! Please enter your new password below.', 'success');
+                } else {
+                    // If no session, try to handle auth change
+                    showMessage('Waiting for authentication...', 'success');
+                    
+                    // Wait a moment for auth state to settle
+                    setTimeout(async () => {
+                        const { data: { session: retrySession } } = await supabase.auth.getSession();
+                        if (!retrySession) {
+                            showMessage('Invalid or expired reset link. Please request a new password reset.', 'error');
+                        }
+                    }, 2000);
                 }
-            } else {
-                showMessage('Invalid reset link. Please request a new password reset.', 'error');
+            } catch (err) {
+                showMessage('Error processing reset link. Please try again.', 'error');
             }
         }
 
