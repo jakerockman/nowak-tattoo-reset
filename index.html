@@ -86,42 +86,36 @@
 
         // Handle the password recovery flow properly
         async function handleAuthFlow() {
-            // Get URL parameters - Supabase sends different formats
+            // Check URL hash first (Supabase typically uses hash for tokens)
+            const hash = window.location.hash.substring(1);
+            const hashParams = new URLSearchParams(hash);
+            
+            // Then check URL search params
             const urlParams = new URLSearchParams(window.location.search);
-            const hash = new URLSearchParams(window.location.hash.substring(1));
             
-            // Debug: Show what we actually received
-            showMessage('Debugging: URL = ' + window.location.href, 'success');
-            console.log('Full URL:', window.location.href);
-            console.log('Search params:', window.location.search);
-            console.log('Hash:', window.location.hash);
-            console.log('URL params:', Object.fromEntries(urlParams));
-            console.log('Hash params:', Object.fromEntries(hash));
+            // Get tokens from hash or URL params
+            const accessToken = hashParams.get('access_token') || urlParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token') || urlParams.get('refresh_token');
+            const type = hashParams.get('type') || urlParams.get('type');
             
-            // Check for tokens in URL params or hash
-            let accessToken = urlParams.get('access_token') || hash.get('access_token');
-            let refreshToken = urlParams.get('refresh_token') || hash.get('refresh_token');
-            let type = urlParams.get('type') || hash.get('type');
-            
-            // Also check for direct token and type in URL
-            const token = urlParams.get('token');
-            const resetType = urlParams.get('type');
-            
-            // Show what we found
-            const debugInfo = `
-                Access Token: ${accessToken ? 'Found' : 'Not found'}
-                Refresh Token: ${refreshToken ? 'Found' : 'Not found'}
-                Type: ${type || 'Not found'}
-                Direct Token: ${token || 'Not found'}
-                Reset Type: ${resetType || 'Not found'}
-            `;
-            
-            showMessage('Debug Info:' + debugInfo, 'success');
-            
-            // Don't process anything yet - just show what we received
-            setTimeout(() => {
-                showMessage('Please check the console (F12) and tell me what parameters you see.', 'error');
-            }, 2000);
+            if (type === 'recovery' && accessToken) {
+                try {
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    });
+
+                    if (error) {
+                        showMessage('Invalid reset link. Please request a new password reset.', 'error');
+                    } else {
+                        showMessage('Please enter your new password below.', 'success');
+                    }
+                } catch (err) {
+                    showMessage('Error processing reset link. Please try again.', 'error');
+                }
+            } else {
+                showMessage('Invalid reset link. Please request a new password reset.', 'error');
+            }
         }
 
         // Initialize auth flow when page loads
