@@ -32,6 +32,47 @@
             border-radius: 5px;
             box-sizing: border-box;
         }
+        .password-container {
+            position: relative;
+        }
+        .toggle-password {
+            position: absolute;
+            right: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: #666;
+            font-size: 14px;
+            padding: 0;
+            width: auto;
+        }
+        .toggle-password:hover {
+            background: none;
+            color: #333;
+        }
+        .password-requirements {
+            background-color: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 5px;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 12px;
+            color: #6c757d;
+        }
+        .password-requirements h4 {
+            margin: 0 0 8px 0;
+            color: #495057;
+            font-size: 13px;
+        }
+        .password-requirements ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .password-requirements li {
+            margin: 2px 0;
+        }
         button {
             width: 100%;
             padding: 12px;
@@ -75,35 +116,40 @@
     <div class="container">
         <h1>🔑 Reset Your Password</h1>
         <div id="message"></div>
-        <div id="debug"></div>
         
         <form id="resetForm">
-            <input type="password" id="newPassword" placeholder="New Password" required>
-            <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+            <div class="password-requirements">
+                <h4>Password Requirements:</h4>
+                <ul>
+                    <li>At least 8 characters long</li>
+                    <li>At least one uppercase letter (A-Z)</li>
+                    <li>At least one lowercase letter (a-z)</li>
+                    <li>At least one number (0-9)</li>
+                    <li>At least one special character (!@#$%^&*)</li>
+                </ul>
+            </div>
+            
+            <div class="password-container">
+                <input type="password" id="newPassword" placeholder="New Password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('newPassword')">👁️</button>
+            </div>
+            
+            <div class="password-container">
+                <input type="password" id="confirmPassword" placeholder="Confirm New Password" required>
+                <button type="button" class="toggle-password" onclick="togglePassword('confirmPassword')">👁️</button>
+            </div>
+            
             <button type="submit">Update Password</button>
         </form>
     </div>
 
     <script>
-        const debugDiv = document.getElementById('debug');
-        
-        function debugLog(msg) {
-            console.log(msg);
-            debugDiv.innerHTML += msg + '<br>';
-        }
-        
-        debugLog('Starting password reset page...');
-        debugLog('URL: ' + window.location.href);
-        debugLog('Hash: ' + window.location.hash);
-        
         // Initialize Supabase
         const { createClient } = supabase;
         const client = createClient(
             'https://trbfaozlvwykygnrxaxy.supabase.co',
             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRyYmZhb3psdnd5a3lnbnJ4YXh5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTQ3NzIxMDMsImV4cCI6MjA3MDM0ODEwM30.yoocL7YVlTYpIiH_T9HYMspVU8pBAG6x7yJSFPgLKDU'
         );
-
-        debugLog('Supabase client created');
 
         const messageDiv = document.getElementById('message');
         let isAuthenticated = false;
@@ -112,22 +158,16 @@
         async function handleAuthFlow() {
             try {
                 showMessage('Processing reset link...', 'success');
-                debugLog('Starting auth flow...');
                 
                 // Check URL hash for tokens (Supabase puts them there)
                 const hash = window.location.hash.substring(1);
-                debugLog('URL hash: ' + hash);
                 
                 const hashParams = new URLSearchParams(hash);
                 const accessToken = hashParams.get('access_token');
                 const refreshToken = hashParams.get('refresh_token');
                 const type = hashParams.get('type');
                 
-                debugLog('Parsed tokens - type: ' + type + ', accessToken: ' + (accessToken ? 'present' : 'missing') + ', refreshToken: ' + (refreshToken ? 'present' : 'missing'));
-                
                 if (type === 'recovery' && accessToken && refreshToken) {
-                    debugLog('Attempting to set session...');
-                    
                     // Set the session with tokens from URL
                     const { data, error } = await client.auth.setSession({
                         access_token: accessToken,
@@ -135,19 +175,15 @@
                     });
 
                     if (error) {
-                        debugLog('Session error: ' + error.message);
                         showMessage('Invalid reset link: ' + error.message, 'error');
                     } else {
-                        debugLog('Session set successfully');
                         showMessage('Reset link verified! Please enter your new password below.', 'success');
                         isAuthenticated = true;
                     }
                 } else {
-                    debugLog('Invalid or missing tokens');
                     showMessage('Invalid reset link format. Please request a new password reset.', 'error');
                 }
             } catch (err) {
-                debugLog('Auth flow error: ' + err.message);
                 showMessage('Error processing reset link: ' + err.message, 'error');
             }
         }
@@ -155,10 +191,35 @@
         // Initialize on page load
         handleAuthFlow();
 
+        // Toggle password visibility
+        function togglePassword(fieldId) {
+            const field = document.getElementById(fieldId);
+            const button = field.nextElementSibling;
+            
+            if (field.type === 'password') {
+                field.type = 'text';
+                button.textContent = '🙈';
+            } else {
+                field.type = 'password';
+                button.textContent = '👁️';
+            }
+        }
+
+        // Validate password strength
+        function validatePassword(password) {
+            const requirements = {
+                length: password.length >= 8,
+                uppercase: /[A-Z]/.test(password),
+                lowercase: /[a-z]/.test(password),
+                number: /[0-9]/.test(password),
+                special: /[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)
+            };
+            
+            return Object.values(requirements).every(req => req);
+        }
+
         // Also listen for auth state changes
         client.auth.onAuthStateChange((event, session) => {
-            debugLog('Auth state change - event: ' + event + ', session: ' + (session ? 'present' : 'null'));
-            
             if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
                 showMessage('Ready to reset password. Please enter your new password below.', 'success');
                 isAuthenticated = true;
@@ -182,29 +243,25 @@
                 return;
             }
 
-            if (newPassword.length < 6) {
-                showMessage('Password must be at least 6 characters long!', 'error');
+            if (!validatePassword(newPassword)) {
+                showMessage('Password does not meet requirements. Please check the requirements above.', 'error');
                 return;
             }
 
             try {
                 showMessage('Updating password...', 'success');
-                debugLog('Attempting password update...');
                 
                 const { data, error } = await client.auth.updateUser({
                     password: newPassword
                 });
 
                 if (error) {
-                    debugLog('Password update error: ' + error.message);
                     showMessage('Error: ' + error.message, 'error');
                 } else {
-                    debugLog('Password updated successfully');
                     showMessage('Password updated successfully! You can now close this page and log in with your new password.', 'success');
                     document.getElementById('resetForm').style.display = 'none';
                 }
             } catch (err) {
-                debugLog('Password update exception: ' + err.message);
                 showMessage('An unexpected error occurred: ' + err.message, 'error');
             }
         });
