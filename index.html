@@ -86,14 +86,46 @@
 
         // Handle the password recovery flow properly
         async function handleAuthFlow() {
-            // Get URL parameters
+            // Get URL parameters - Supabase sends different formats
             const urlParams = new URLSearchParams(window.location.search);
-            const accessToken = urlParams.get('access_token');
-            const refreshToken = urlParams.get('refresh_token');
-            const type = urlParams.get('type');
+            const hash = new URLSearchParams(window.location.hash.substring(1));
+            
+            // Check for tokens in URL params or hash
+            let accessToken = urlParams.get('access_token') || hash.get('access_token');
+            let refreshToken = urlParams.get('refresh_token') || hash.get('refresh_token');
+            let type = urlParams.get('type') || hash.get('type');
+            
+            // Also check for direct token and type in URL
+            const token = urlParams.get('token');
+            const resetType = urlParams.get('type');
+            
+            console.log('URL params:', Object.fromEntries(urlParams));
+            console.log('Hash params:', Object.fromEntries(hash));
+            console.log('Token:', token, 'Type:', resetType);
 
-            if (type === 'recovery' && accessToken) {
-                // Set the session from URL parameters
+            if (resetType === 'recovery' && token) {
+                // This is the format Supabase actually uses
+                showMessage('Processing reset link...', 'success');
+                
+                // Exchange the token for a session
+                try {
+                    const { data, error } = await supabase.auth.verifyOtp({
+                        token_hash: token,
+                        type: 'recovery'
+                    });
+                    
+                    if (error) {
+                        console.error('Verify OTP error:', error);
+                        showMessage('Invalid or expired reset link. Please request a new password reset.', 'error');
+                    } else {
+                        showMessage('Reset link verified! Please enter your new password below.', 'success');
+                    }
+                } catch (err) {
+                    console.error('Auth error:', err);
+                    showMessage('Error processing reset link. Please try again.', 'error');
+                }
+            } else if (type === 'recovery' && accessToken) {
+                // Fallback for different URL format
                 const { data, error } = await supabase.auth.setSession({
                     access_token: accessToken,
                     refresh_token: refreshToken
@@ -105,7 +137,7 @@
                     showMessage('Please enter your new password below.', 'success');
                 }
             } else {
-                showMessage('Invalid reset link. Please request a new password reset.', 'error');
+                showMessage('Invalid reset link format. Please request a new password reset.', 'error');
             }
         }
 
