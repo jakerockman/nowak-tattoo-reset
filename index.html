@@ -83,21 +83,61 @@
         );
 
         const messageDiv = document.getElementById('message');
+        let isAuthenticated = false;
 
-        // This is the correct way - let Supabase handle everything automatically
+        // Handle auth flow on page load
+        async function handleAuthFlow() {
+            showMessage('Processing reset link...', 'success');
+            
+            // Check URL hash for tokens (Supabase puts them there)
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            const accessToken = hashParams.get('access_token');
+            const refreshToken = hashParams.get('refresh_token');
+            const type = hashParams.get('type');
+            
+            if (type === 'recovery' && accessToken && refreshToken) {
+                try {
+                    // Set the session with tokens from URL
+                    const { data, error } = await supabase.auth.setSession({
+                        access_token: accessToken,
+                        refresh_token: refreshToken
+                    });
+
+                    if (error) {
+                        showMessage('Invalid reset link: ' + error.message, 'error');
+                    } else {
+                        showMessage('Reset link verified! Please enter your new password below.', 'success');
+                        isAuthenticated = true;
+                    }
+                } catch (err) {
+                    showMessage('Error processing reset link: ' + err.message, 'error');
+                }
+            } else {
+                showMessage('Invalid reset link format. Please request a new password reset.', 'error');
+            }
+        }
+
+        // Initialize on page load
+        handleAuthFlow();
+
+        // Also listen for auth state changes
         supabase.auth.onAuthStateChange((event, session) => {
             console.log('Auth event:', event, session);
             
-            if (event === 'PASSWORD_RECOVERY') {
-                showMessage('Please enter your new password below.', 'success');
-            } else if (event === 'SIGNED_IN' && session) {
+            if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
                 showMessage('Ready to reset password. Please enter your new password below.', 'success');
+                isAuthenticated = true;
             }
         });
 
         // Handle form submission
         document.getElementById('resetForm').addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            if (!isAuthenticated) {
+                showMessage('Authentication required. Please use a valid reset link.', 'error');
+                return;
+            }
             
             const newPassword = document.getElementById('newPassword').value;
             const confirmPassword = document.getElementById('confirmPassword').value;
@@ -134,9 +174,6 @@
             messageDiv.innerHTML = text;
             messageDiv.className = 'message ' + type;
         }
-
-        // Initial message
-        showMessage('Loading...', 'success');
     </script>
 </body>
 </html>
