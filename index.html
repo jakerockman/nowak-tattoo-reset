@@ -84,7 +84,35 @@
 
         const messageDiv = document.getElementById('message');
 
-        // Check if we have a valid session from the reset link
+        // Handle the password recovery flow properly
+        async function handleAuthFlow() {
+            // Get URL parameters
+            const urlParams = new URLSearchParams(window.location.search);
+            const accessToken = urlParams.get('access_token');
+            const refreshToken = urlParams.get('refresh_token');
+            const type = urlParams.get('type');
+
+            if (type === 'recovery' && accessToken) {
+                // Set the session from URL parameters
+                const { data, error } = await supabase.auth.setSession({
+                    access_token: accessToken,
+                    refresh_token: refreshToken
+                });
+
+                if (error) {
+                    showMessage('Invalid reset link. Please request a new password reset.', 'error');
+                } else {
+                    showMessage('Please enter your new password below.', 'success');
+                }
+            } else {
+                showMessage('Invalid reset link. Please request a new password reset.', 'error');
+            }
+        }
+
+        // Initialize auth flow when page loads
+        handleAuthFlow();
+
+        // Also listen for auth state changes
         supabase.auth.onAuthStateChange((event, session) => {
             if (event === 'PASSWORD_RECOVERY') {
                 showMessage('Please enter your new password below.', 'success');
