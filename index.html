@@ -84,46 +84,14 @@
 
         const messageDiv = document.getElementById('message');
 
-        // Handle the password recovery flow properly
-        async function handleAuthFlow() {
-            showMessage('Processing reset link...', 'success');
-            
-            // Supabase sends tokens in the URL fragment (after #)
-            const fragment = window.location.hash.substring(1);
-            const params = new URLSearchParams(fragment);
-            
-            const accessToken = params.get('access_token');
-            const refreshToken = params.get('refresh_token');
-            const type = params.get('type');
-            
-            if (type === 'recovery' && accessToken && refreshToken) {
-                try {
-                    // Set the session with the tokens from URL
-                    const { data, error } = await supabase.auth.setSession({
-                        access_token: accessToken,
-                        refresh_token: refreshToken
-                    });
-
-                    if (error) {
-                        showMessage('Invalid or expired reset link. Please request a new password reset.', 'error');
-                    } else {
-                        showMessage('Reset link verified! Please enter your new password below.', 'success');
-                    }
-                } catch (err) {
-                    showMessage('Error processing reset link. Please try again.', 'error');
-                }
-            } else {
-                showMessage('Invalid reset link format. Please request a new password reset from the app.', 'error');
-            }
-        }
-
-        // Initialize auth flow when page loads
-        handleAuthFlow();
-
-        // Also listen for auth state changes
+        // This is the correct way - let Supabase handle everything automatically
         supabase.auth.onAuthStateChange((event, session) => {
+            console.log('Auth event:', event, session);
+            
             if (event === 'PASSWORD_RECOVERY') {
                 showMessage('Please enter your new password below.', 'success');
+            } else if (event === 'SIGNED_IN' && session) {
+                showMessage('Ready to reset password. Please enter your new password below.', 'success');
             }
         });
 
@@ -145,18 +113,20 @@
             }
 
             try {
-                const { error } = await supabase.auth.updateUser({
+                showMessage('Updating password...', 'success');
+                
+                const { data, error } = await supabase.auth.updateUser({
                     password: newPassword
                 });
 
                 if (error) {
                     showMessage('Error: ' + error.message, 'error');
                 } else {
-                    showMessage('Password updated successfully! You can now log in with your new password.', 'success');
+                    showMessage('Password updated successfully! You can now close this page and log in with your new password.', 'success');
                     document.getElementById('resetForm').style.display = 'none';
                 }
             } catch (err) {
-                showMessage('An unexpected error occurred. Please try again.', 'error');
+                showMessage('An unexpected error occurred: ' + err.message, 'error');
             }
         });
 
@@ -165,14 +135,8 @@
             messageDiv.className = 'message ' + type;
         }
 
-        // Check URL parameters for errors
-        const urlParams = new URLSearchParams(window.location.search);
-        const error = urlParams.get('error');
-        const errorDescription = urlParams.get('error_description');
-
-        if (error) {
-            showMessage('Error: ' + (errorDescription || error), 'error');
-        }
+        // Initial message
+        showMessage('Loading...', 'success');
     </script>
 </body>
 </html>
